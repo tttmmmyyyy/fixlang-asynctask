@@ -68,11 +68,34 @@ test_async_shared_array = (
         continue $ (i + 1, sum + arr.@(i))
     ));
     let ans = n * (n - 1) / 2;
-    eval assert_eq(|_|"", sum_task_0.get, ans);
-    eval assert_eq(|_|"", sum_task_1.get, ans);
-    eval assert_eq(|_|"", sum_task_2.get, ans);
-    eval assert_eq(|_|"", sum_task_3.get, ans);
-    eval assert_eq(|_|"", sum_task_4, ans);
+    eval assert_eq(|_|"test_async_shared_array failed!", sum_task_0.get, ans);
+    eval assert_eq(|_|"test_async_shared_array failed!", sum_task_1.get, ans);
+    eval assert_eq(|_|"test_async_shared_array failed!", sum_task_2.get, ans);
+    eval assert_eq(|_|"test_async_shared_array failed!", sum_task_3.get, ans);
+    eval assert_eq(|_|"test_async_shared_array failed!", sum_task_4, ans);
+    pure()
+);
+
+test_async_shared_array_2 : IO ();
+test_async_shared_array_2 = (
+    let sum_range = |from, to| (
+        loop((0, from), |(sum, i)| (
+            if i == to { break $ sum };
+            continue $ (sum + i, i + 1)
+        ))
+    );
+    let n = 10000000;
+    // Compute the sum of numbers from 0 to n/2 - 1.
+    // This task will be executed asynchronously (if you are using multi-core CPU).
+    let sum_former = AsyncTask::make(|_| sum_range(0, n/2));
+    // Compute the sum of numbers from n/2 to n.
+    // We perfom this in the current thread while waiting for the result of the former task.
+    let sum_latter = sum_range(n/2, n);
+    // Sum up the results of the two computations.
+    let sum = sum_former.get + sum_latter;
+    // Then the sum should be n * (n - 1) / 2.
+    eval assert_eq(|_|"test_async_shared_array_2 failed!", sum, n * (n - 1) / 2);
+    
     pure()
 );
 
@@ -82,7 +105,7 @@ test_async_task_array_result = (
     let task_0 = AsyncTask::make(|_| Iterator::range(0, n).to_array);
     let task_1 = AsyncTask::make(|_| Iterator::range(n, 2*n).to_array);
     let task_2 = AsyncTask::make(|_| Iterator::range(0, 2*n).to_array);
-    eval assert_eq(|_|"", task_0.get.append(task_1.get), task_2.get);
+    eval assert_eq(|_|"test_async_task_array_result failed!", task_0.get.append(task_1.get), task_2.get);
     pure()
 );
 
@@ -151,6 +174,7 @@ test : IO ();
 test = (
     eval *test_async_fib;
     eval *test_async_shared_array;
+    eval *test_async_shared_array_2;
     eval *test_async_task_array_result;
     eval *test_mvar;
     eval *test_mvar_of_shared_object;
