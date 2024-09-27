@@ -1,0 +1,14 @@
+[general]
+name = "asynctask"
+version = "0.1.0"
+
+[build]
+files = ["asynctask.fix"]
+objects = ["lib.o"]
+threaded = true
+dynamic_links = ["pthread"]
+preliminary_commands = [["make", "lib.o"]]
+
+[build.test]
+files = ["test.fix"]
+memcheck = true
