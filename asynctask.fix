@@ -88,6 +88,36 @@ make = |func| (
     Task { dtor : dtor }
 );
 
+// Similar to `make`, but the task function takes an argument.
+_make_from_io : IO a -> Task a;
+_make_from_io = |io| (
+    let lazy_boxed_iostate_a = |_| Boxed { value : (io.@_data)(undefined("iostate")) }; // : Lazy (Boxed (IOState, a))
+    let io = mark_threaded(io);
+
+    // Create task function to be run on a thread.
+    // NOTE: Since both of `()` and `IOState` are empty type, 
+    // so `_run_task_function : Boxed (() -> Ptr) -> Ptr` is equivalent to `Boxed (IOState -> Ptr) -> Ptr` and it can run this `task_func`.
+    let task_func : IOState -> Ptr = |iostate| (
+        // Run the task function.
+        let result = (io.@_data)(iostate);
+        // Return the boxed and threaded value.
+        mark_threaded(Boxed { value : result }).unsafe_get_retained_ptr_of_boxed_value
+    );
+    let boxed_task_func = Boxed { value : task_func };
+    // Get the native handle of the task.
+    let task_handle : TaskHandle = FFI_CALL[Ptr fixasynctask_thread_create_task(Ptr, Ptr, Ptr), 
+        boxed_task_func.unsafe_get_retained_ptr_of_boxed_value,
+        lazy_boxed_iostate_a.unsafe_get_release_function_of_boxed_value,
+        lazy_boxed_iostate_a.unsafe_get_retain_function_of_boxed_value
+    ];
+
+    // In the destructor, release the task handle.
+    let dtor = Destructor::make(task_handle, |task_handle| (
+        FFI_CALL[() fixasynctask_thread_release_task(Ptr), task_handle]
+    ));
+    Task { dtor : dtor }
+);
+
 // Gets the number of processors (CPU cores) currently available.
 // This is implemented by calling `sysconf(_SC_NPROCESSORS_ONLN)`.
 // The runtime pools as many threads as this number to execute asynchronous tasks.
@@ -130,10 +160,13 @@ namespace AsyncIOTask {
     // ```
     make : IO a -> IO (IOTask a);
     make = |io| (
-        // NOTE: we must not create AsyncTask in this function; we should create it in the IO action.
+        // NOTE: we must not create Task in this function; we should create it in the IO action.
         // Otherwise, user can run IO action in a pure function.
         // So we cannot implement this function as `pure $ IOTask { ... }`.
-        IO::from_io_runner $ |state| (state, IOTask { _task : make(|_| (io.@_data)(state).@1) })
+        // 
+        // NOTE: Previous implementation was: `IO::from_io_runner $ |state| (state, IOTask { _task : make(|_| (io.@_data)(state).@1) })`
+        // which discards the IOState, and IO action can be omitted by optimizer.
+        IO::from_io_runner $ |state| (state, IOTask { _task : _make_from_io(io) } )
     );
 }
 

@@ -79,6 +79,10 @@ main = (
 
 ## `namespace AsyncTask`
 
+### `_make_from_io : Std::IO a -> AsyncTask::Task a`
+
+Similar to `make`, but the task function takes an argument.
+
 ### `_run_task_function : Std::Boxed (() -> Std::Ptr) -> Std::Ptr`
 
 Evaluate the boxed lazy pointer.
