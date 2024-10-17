@@ -236,10 +236,11 @@ namespace Var {
     make = |value| IO::from_runner $ |ios| (
         let value = mark_threaded(VarValue { value : value });
         let lazy_value = |_| value;
-        let handle = FFI_CALL[Ptr fixasynctask_thread_var_create(Ptr, Ptr, Ptr), 
+        let (ios, handle) = FFI_CALL_IO[Ptr fixasynctask_thread_var_create(Ptr, Ptr, Ptr), 
             value.unsafe_get_retained_ptr_of_boxed_value,
             lazy_value.unsafe_get_release_function_of_boxed_value,
-            lazy_value.unsafe_get_retain_function_of_boxed_value
+            lazy_value.unsafe_get_retain_function_of_boxed_value,
+            ios
         ];
         let dtor = Destructor::make(handle, |handle| (
             FFI_CALL[() fixasynctask_thread_var_destroy(Ptr), handle]
@@ -257,10 +258,10 @@ namespace Var {
         let value = mark_threaded(VarValue { value : value });
         let ptr = value.unsafe_get_retained_ptr_of_boxed_value;
         let handle = dtor.@_value;
-        eval FFI_CALL[() fixasynctask_thread_var_lock(Ptr), handle];
-        eval FFI_CALL[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr];
-        eval FFI_CALL[() fixasynctask_thread_var_signalall(Ptr), handle];
-        eval FFI_CALL[() fixasynctask_thread_var_unlock(Ptr), handle];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr, ios];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_signalall(Ptr), handle, ios];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
         let _ = dtor; // Do not call destructor before ending working with handle.
         (ios, ())
     );
@@ -277,19 +278,19 @@ namespace Var {
     wait_and_lock : (a -> Bool) -> (a -> IO b) -> Var a -> IO b;
     wait_and_lock = |cond, act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
         let handle = dtor.@_value;
-        eval FFI_CALL[() fixasynctask_thread_var_lock(Ptr), handle];
-        let ok_val = loop((), |_| (
-            let ptr = FFI_CALL[Ptr fixasynctask_thread_var_get(Ptr), handle];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+        let (ios, ok_val) = loop((ios, ()), |(ios, _)| (
+            let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
             let val = ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value;
             if cond(val) {
-                break $ val
+                break $ (ios, val)
             } else {
-                eval FFI_CALL[() fixasynctask_thread_var_wait(Ptr), handle];
-                continue $ ()
+                let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_wait(Ptr), handle, ios];
+                continue $ (ios, ())
             }
         ));
         let (ios, res) = (act(ok_val).@runner)(ios);
-        eval FFI_CALL[() fixasynctask_thread_var_unlock(Ptr), handle];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
         let _ = dtor; // Do not call destructor before ending working with handle.
         (ios, res)
     );
