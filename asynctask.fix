@@ -166,7 +166,7 @@ namespace AsyncIOTask {
         // 
         // NOTE: Previous implementation was: `IO::from_io_runner $ |state| (state, IOTask { _task : make(|_| (io.@_data)(state).@1) })`
         // which discards the IOState, and IO action can be omitted by optimizer.
-        IO::from_io_runner $ |state| (state, IOTask { _task : _make_from_io(io) } )
+        IO::from_runner $ |state| (state, IOTask { _task : _make_from_io(io) } )
     );
 }
 
@@ -221,7 +221,7 @@ namespace Var {
 
     // `var.lock(act)` performs an action on the value in `var` while locking `var` to prevent it from being changed by another thread.
     lock : (a -> IO b) -> Var a -> IO b;
-    lock = |act, Var { _dtor : dtor }| IO::from_io_runner $ |ios| (
+    lock = |act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
         let handle = dtor.@_value;
         let (io, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
         let (io, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
@@ -233,7 +233,7 @@ namespace Var {
 
     // Create a new `Var` object.
     make : a -> IO (Var a);
-    make = |value| IO::from_io_runner $ |ios| (
+    make = |value| IO::from_runner $ |ios| (
         let value = mark_threaded(VarValue { value : value });
         let lazy_value = |_| value;
         let handle = FFI_CALL[Ptr fixasynctask_thread_var_create(Ptr, Ptr, Ptr), 
@@ -253,7 +253,7 @@ namespace Var {
 
     // Set a value to a `Var`.
     set : a -> Var a -> IO ();
-    set = |value, Var { _dtor : dtor }| IO::from_io_runner $ |ios| (
+    set = |value, Var { _dtor : dtor }| IO::from_runner $ |ios| (
         let value = mark_threaded(VarValue { value : value });
         let ptr = value.unsafe_get_retained_ptr_of_boxed_value;
         let handle = dtor.@_value;
@@ -275,7 +275,7 @@ namespace Var {
     // `var.wait_and_lock(cond, act)` waits until `cond` on the value of `var` is satisfied, 
     // then performs `act` on the value in `var` while locking `var` to prevent it from being changed by another thread.
     wait_and_lock : (a -> Bool) -> (a -> IO b) -> Var a -> IO b;
-    wait_and_lock = |cond, act, Var { _dtor : dtor }| IO::from_io_runner $ |ios| (
+    wait_and_lock = |cond, act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
         let handle = dtor.@_value;
         eval FFI_CALL[() fixasynctask_thread_var_lock(Ptr), handle];
         let ok_val = loop((), |_| (
