@@ -91,7 +91,7 @@ make = |func| (
 // Similar to `make`, but the task function takes an argument.
 _make_from_io : IO a -> Task a;
 _make_from_io = |io| (
-    let lazy_boxed_iostate_a = |_| Boxed { value : (io.@_data)(undefined("iostate")) }; // : Lazy (Boxed (IOState, a))
+    let lazy_boxed_iostate_a = |_| Boxed { value : (io.@runner)(undefined("iostate")) }; // : Lazy (Boxed (IOState, a))
     let io = mark_threaded(io);
 
     // Create task function to be run on a thread.
@@ -99,7 +99,7 @@ _make_from_io = |io| (
     // so `_run_task_function : Boxed (() -> Ptr) -> Ptr` is equivalent to `Boxed (IOState -> Ptr) -> Ptr` and it can run this `task_func`.
     let task_func : IOState -> Ptr = |iostate| (
         // Run the task function.
-        let result = (io.@_data)(iostate);
+        let result = (io.@runner)(iostate);
         // Return the boxed and threaded value.
         mark_threaded(Boxed { value : result }).unsafe_get_retained_ptr_of_boxed_value
     );
@@ -210,23 +210,23 @@ namespace Var {
 
     // Get a value stored in a `Var`.
     get : Var a -> IO a;
-    get = |Var { _dtor : dtor }| IO { _data : |_| (
+    get = |Var { _dtor : dtor }| IO { runner : |ios| (
         let handle = dtor.@_value;
-        eval FFI_CALL[() fixasynctask_thread_var_lock(Ptr), handle];
-        let ptr = FFI_CALL[Ptr fixasynctask_thread_var_get(Ptr), handle];
-        eval FFI_CALL[() fixasynctask_thread_var_unlock(Ptr), handle];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+        let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
         let _ = dtor; // Do not call destructor before ending working with handle.
-        ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value
+        (ios, ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value)
     ) };
 
     // `var.lock(act)` performs an action on the value in `var` while locking `var` to prevent it from being changed by another thread.
     lock : (a -> IO b) -> Var a -> IO b;
     lock = |act, Var { _dtor : dtor }| IO::from_io_runner $ |ios| (
         let handle = dtor.@_value;
-        eval FFI_CALL[() fixasynctask_thread_var_lock(Ptr), handle];
-        let ptr = FFI_CALL[Ptr fixasynctask_thread_var_get(Ptr), handle];
-        let (ios, res) = (act(ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value).@_data)(ios);
-        eval FFI_CALL[() fixasynctask_thread_var_unlock(Ptr), handle];
+        let (io, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+        let (io, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
+        let (ios, res) = (act(ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value).@runner)(ios);
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
         let _ = dtor; // Do not call destructor before ending working with handle.
         (ios, res)
     );
@@ -288,7 +288,7 @@ namespace Var {
                 continue $ ()
             }
         ));
-        let (ios, res) = (act(ok_val).@_data)(ios);
+        let (ios, res) = (act(ok_val).@runner)(ios);
         eval FFI_CALL[() fixasynctask_thread_var_unlock(Ptr), handle];
         let _ = dtor; // Do not call destructor before ending working with handle.
         (ios, res)
