@@ -82,8 +82,9 @@ make = |func| (
     ];
 
     // In the destructor, release the task handle.
-    let dtor = Destructor::make(task_handle, |task_handle| (
-        FFI_CALL[() fixasynctask_thread_release_task(Ptr), task_handle]
+    let dtor = Destructor::make(task_handle, |task_handle| IO::from_runner $ |ios| (
+        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_release_task(Ptr), task_handle, ios];
+        (ios, nullptr)
     ));
     Task { dtor : dtor }
 );
@@ -112,8 +113,9 @@ _make_from_io = |io| (
     ];
 
     // In the destructor, release the task handle.
-    let dtor = Destructor::make(task_handle, |task_handle| (
-        FFI_CALL[() fixasynctask_thread_release_task(Ptr), task_handle]
+    let dtor = Destructor::make(task_handle, |task_handle| IO::from_runner $ |ios| (
+        let (ios, _) =FFI_CALL_IO[() fixasynctask_thread_release_task(Ptr), task_handle, ios];
+        (ios, nullptr)
     ));
     Task { dtor : dtor }
 );
@@ -242,8 +244,9 @@ namespace Var {
             lazy_value.unsafe_get_retain_function_of_boxed_value,
             ios
         ];
-        let dtor = Destructor::make(handle, |handle| (
-            FFI_CALL[() fixasynctask_thread_var_destroy(Ptr), handle]
+        let dtor = Destructor::make(handle, |handle| IO::from_runner $ |ios| (
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_destroy(Ptr), handle, ios];
+            (ios, nullptr)
         ));
         (ios, Var { _dtor : dtor })
     );
