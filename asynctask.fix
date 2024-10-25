@@ -23,9 +23,10 @@ FFI_EXPORT[_run_task_function, fixasynctask_run_task_function];
 // This function blocks the current thread until the task is finished.
 get : Task a -> a;
 get = |task| (
-    let task_handle = task.@dtor.@_value;
-    let task_result_ptr = FFI_CALL[Ptr fixasynctask_thread_get_task_result(Ptr), task_handle];
-    let _ = task; // Do not call destructor before ending working with `task_handle`.
+    let task_result_ptr = task.do_with_retained(|task| 
+        let task_handle = task.@dtor.@_value;
+        FFI_CALL[Ptr fixasynctask_thread_get_task_result(Ptr), task_handle]
+    );
     unsafe_get_boxed_value_from_retained_ptr(task_result_ptr).Boxed::@value
 );
 
@@ -54,7 +55,7 @@ get = |task| (
 //     // Sum up the results of the two computations.
 //     let sum = sum_former.get + sum_latter;
 //     // Then the sum should be n * (n - 1) / 2.
-//     eval assert_eq(|_|"", sum, n * (n - 1) / 2);
+//     eval *assert_eq(|_|"", sum, n * (n - 1) / 2);
 //     println $ 
 //         "Sum of numbers from 0 to " + (n - 1).to_string + 
 //         " is " + sum_former.get.to_string + " + " + sum_latter.to_string + 
@@ -213,23 +214,25 @@ namespace Var {
     // Get a value stored in a `Var`.
     get : Var a -> IO a;
     get = |Var { _dtor : dtor }| IO { runner : |ios| (
-        let handle = dtor.@_value;
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-        let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-        let _ = dtor; // Do not call destructor before ending working with handle.
+        let (ios, ptr) = dtor.borrow(|handle|
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+            let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
+            (ios, ptr)
+        );
         (ios, ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value)
     ) };
 
     // `var.lock(act)` performs an action on the value in `var` while locking `var` to prevent it from being changed by another thread.
     lock : (a -> IO b) -> Var a -> IO b;
     lock = |act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
-        let handle = dtor.@_value;
-        let (io, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-        let (io, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-        let (ios, res) = (act(ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value).@runner)(ios);
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-        let _ = dtor; // Do not call destructor before ending working with handle.
+        let (ios, res) = dtor.borrow(|handle|
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+            let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
+            let (ios, res) = (act(ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value).@runner)(ios);
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
+            (ios, res)
+        );
         (ios, res)
     );
 
@@ -260,12 +263,13 @@ namespace Var {
     set = |value, Var { _dtor : dtor }| IO::from_runner $ |ios| (
         let value = mark_threaded(VarValue { value : value });
         let ptr = value.unsafe_get_retained_ptr_of_boxed_value;
-        let handle = dtor.@_value;
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr, ios];
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_signalall(Ptr), handle, ios];
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-        let _ = dtor; // Do not call destructor before ending working with handle.
+        let ios = dtor.borrow(|handle|
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr, ios];
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_signalall(Ptr), handle, ios];
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
+            ios
+        );
         (ios, ())
     );
 
@@ -280,21 +284,21 @@ namespace Var {
     // then performs `act` on the value in `var` while locking `var` to prevent it from being changed by another thread.
     wait_and_lock : (a -> Bool) -> (a -> IO b) -> Var a -> IO b;
     wait_and_lock = |cond, act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
-        let handle = dtor.@_value;
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-        let (ios, ok_val) = loop((ios, ()), |(ios, _)| (
-            let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-            let val = ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value;
-            if cond(val) {
-                break $ (ios, val)
-            } else {
-                let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_wait(Ptr), handle, ios];
-                continue $ (ios, ())
-            }
-        ));
-        let (ios, res) = (act(ok_val).@runner)(ios);
-        let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-        let _ = dtor; // Do not call destructor before ending working with handle.
-        (ios, res)
+        dtor.borrow(|handle|
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle, ios];
+            let (ios, ok_val) = loop((ios, ()), |(ios, _)| (
+                let (ios, ptr) = FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
+                let val = ptr.unsafe_get_boxed_value_from_retained_ptr.VarValue::@value;
+                if cond(val) {
+                    break $ (ios, val)
+                } else {
+                    let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_wait(Ptr), handle, ios];
+                    continue $ (ios, ())
+                }
+            ));
+            let (ios, res) = (act(ok_val).@runner)(ios);
+            let (ios, _) = FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
+            (ios, res)
+        )
     );
 }

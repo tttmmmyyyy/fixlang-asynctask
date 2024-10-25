@@ -159,7 +159,7 @@ test_mvar_of_shared_object = (
 // Regression test for https://github.com/tttmmmyyyy/fixlang/issues/14
 regression_issue_14: IO ();
 regression_issue_14 = (
-    let _ = *(eprintln ("started"));
+    eval *(eprintln ("started"));
     let str = "abc";
     let buf = Array::fill(256, 0_U8);
     let res = str.borrow_c_str(|p_str|
