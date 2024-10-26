@@ -55,7 +55,7 @@ get = |task| (
 //     // Sum up the results of the two computations.
 //     let sum = sum_former.get + sum_latter;
 //     // Then the sum should be n * (n - 1) / 2.
-//     eval *assert_eq(|_|"", sum, n * (n - 1) / 2);
+//     +assert_eq(|_|"", sum, n * (n - 1) / 2);
 //     println $ 
 //         "Sum of numbers from 0 to " + (n - 1).to_string + 
 //         " is " + sum_former.get.to_string + " + " + sum_latter.to_string + 
@@ -90,37 +90,6 @@ make = |func| (
     Task { dtor : dtor }
 );
 
-// Similar to `make`, but the task function takes an argument.
-_make_from_io : IO a -> Task a;
-_make_from_io = |io| (
-    let lazy_boxed_iostate_a = |_| Boxed { value : (io.@runner)(undefined("iostate")) }; // : Lazy (Boxed (IOState, a))
-    let io = mark_threaded(io);
-
-    // Create task function to be run on a thread.
-    // NOTE: Since both of `()` and `IOState` are empty type, 
-    // so `_run_task_function : Boxed (() -> Ptr) -> Ptr` is equivalent to `Boxed (IOState -> Ptr) -> Ptr` and it can run this `task_func`.
-    let task_func : IOState -> Ptr = |iostate| (
-        // Run the task function.
-        let result = (io.@runner)(iostate);
-        // Return the boxed and threaded value.
-        mark_threaded(Boxed { value : result }).unsafe_get_retained_ptr_of_boxed_value
-    );
-    let boxed_task_func = Boxed { value : task_func };
-    // Get the native handle of the task.
-    let task_handle : TaskHandle = FFI_CALL[Ptr fixasynctask_thread_create_task(Ptr, Ptr, Ptr), 
-        boxed_task_func.unsafe_get_retained_ptr_of_boxed_value,
-        lazy_boxed_iostate_a.unsafe_get_release_function_of_boxed_value,
-        lazy_boxed_iostate_a.unsafe_get_retain_function_of_boxed_value
-    ];
-
-    // In the destructor, release the task handle.
-    let dtor = Destructor::make(task_handle, |task_handle| IO::from_runner $ |ios| (
-        let (ios, _) =FFI_CALL_IO[() fixasynctask_thread_release_task(Ptr), task_handle, ios];
-        (ios, nullptr)
-    ));
-    Task { dtor : dtor }
-);
-
 // Gets the number of processors (CPU cores) currently available.
 // This is implemented by calling `sysconf(_SC_NPROCESSORS_ONLN)`.
 // The runtime pools as many threads as this number to execute asynchronous tasks.
@@ -130,11 +99,15 @@ number_of_processors = FFI_CALL[I64 fixasynctask_get_number_of_processors()];
 namespace AsyncIOTask {
 
     // A type for an I/O action that can be run asynchronously.
-    type IOTask a = unbox struct { _task : Task a };
+    type IOTask a = unbox struct { _task : Task (IOState, a) };
 
     // Get the result of an asynchronous I/O action.
     get : IOTask a -> a;
-    get = |IOTask { _task : task }| task.get;
+    get = |IOTask { _task : task }| (
+        let (ios, res) = task.get;
+        eval ios;
+        res
+    );
 
     // An `IO` version of `AsyncTask::make`.
     // 
@@ -151,7 +124,7 @@ namespace AsyncIOTask {
     //                 break_m $ ()
     //             } else {
     //                 let msg = "task number: " + task_num.to_string + ", i: " + i.to_string;
-    //                 eval *msg.println;
+    //                 +msg.println;
     //                 continue_m $ i + 1
     //             }
     //         ))
@@ -166,10 +139,7 @@ namespace AsyncIOTask {
         // NOTE: we must not create Task in this function; we should create it in the IO action.
         // Otherwise, user can run IO action in a pure function.
         // So we cannot implement this function as `pure $ IOTask { ... }`.
-        // 
-        // NOTE: Previous implementation was: `IO::from_io_runner $ |state| (state, IOTask { _task : make(|_| (io.@_data)(state).@1) })`
-        // which discards the IOState, and IO action can be omitted by optimizer.
-        IO::from_runner $ |state| (state, IOTask { _task : _make_from_io(io) } )
+        IO::from_runner $ |ios| (ios, IOTask { _task : make(|_| (io.@runner)(ios)) })
     );
 }
 
@@ -186,8 +156,8 @@ namespace Var {
     // 
     //     // Launch multiple threads, and log in which order each thread is executed.
     //     let num_threads = number_of_processors * 2;
-    //     eval *Iterator::range(0, num_threads).fold_m((), |_, i| (
-    //         eval *AsyncIOTask::make(
+    //     +Iterator::range(0, num_threads).fold_m((), |_, i| (
+    //         +AsyncIOTask::make(
     //             logger.lock(|logs| (
     //                 let count = logs.get_size;
     //                 let msg = "Thread " + i.to_string + " is running at " + count.to_string + 
@@ -200,7 +170,7 @@ namespace Var {
     //     ));
     //
     //     // Wait until all threads are finished.
-    //     eval *logger.wait(|logs| logs.get_size == num_threads);
+    //     +logger.wait(|logs| logs.get_size == num_threads);
     // 
     //     println $ (*logger.get).to_iter.join("\n")
     // );

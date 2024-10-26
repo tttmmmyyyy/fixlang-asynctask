@@ -43,8 +43,8 @@ main = (
 
     // Launch multiple threads, and log in which order each thread is executed.
     let num_threads = number_of_processors * 2;
-    eval *Iterator::range(0, num_threads).fold_m((), |_, i| (
-        eval *AsyncIOTask::make(
+    +Iterator::range(0, num_threads).fold_m((), |_, i| (
+        +AsyncIOTask::make(
             logger.lock(|logs| (
                 let count = logs.get_size;
                 let msg = "Thread " + i.to_string + " is running at " + count.to_string +
@@ -57,7 +57,7 @@ main = (
     ));
 
     // Wait until all threads are finished.
-    eval *logger.wait(|logs| logs.get_size == num_threads);
+    +logger.wait(|logs| logs.get_size == num_threads);
 
     println $ (*logger.get).to_iter.join("\n")
 );
@@ -157,7 +157,7 @@ main = (
                 break_m $ ()
             } else {
                 let msg = "task number: " + task_num.to_string + ", i: " + i.to_string;
-                eval *msg.println;
+                +msg.println;
                 continue_m $ i + 1
             }
         ))
