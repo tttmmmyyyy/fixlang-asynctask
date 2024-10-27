@@ -120,7 +120,7 @@ test_mvar = (
             logger.lock(|logs| (
                 logger.set(logs.push_back(i))
             ))
-        ).forget;
+        );
         pure()
     ));
 
@@ -151,8 +151,8 @@ test_mvar_of_shared_object = (
         let arr = *var.wait_and_lock(|arr| !arr.is_empty, |arr| pure $ arr);
         pure $ arr.to_iter.fold(0, Add::add)
     ));
-    +assert_eq(|_|"test_mvar_of_shared_object failed!", th0.get, n * (n - 1) / 2);
-    +assert_eq(|_|"test_mvar_of_shared_object failed!", th1.get, n * (n - 1) / 2);
+    +assert_eq(|_|"test_mvar_of_shared_object failed!", *th0.get, n * (n - 1) / 2);
+    +assert_eq(|_|"test_mvar_of_shared_object failed!", *th1.get, n * (n - 1) / 2);
     pure()
 );
 

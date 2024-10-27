@@ -102,11 +102,10 @@ namespace AsyncIOTask {
     type IOTask a = unbox struct { _task : Task (IOState, a) };
 
     // Get the result of an asynchronous I/O action.
-    get : IOTask a -> a;
-    get = |IOTask { _task : task }| (
-        let (ios, res) = task.get;
-        eval ios;
-        res
+    get : IOTask a -> IO a;
+    get = |IOTask { _task : task }| IO::from_runner $ |ios| (
+        let task = eval ios; task;
+        task.get
     );
 
     // An `IO` version of `AsyncTask::make`.

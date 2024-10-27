@@ -25,7 +25,7 @@ A native handle of a task. This type is used only for implementation.
 
 A type for an I/O action that can be run asynchronously.
 
-#### field `_task : AsyncTask::Task a`
+#### field `_task : AsyncTask::Task (Std::IO::IOState, a)`
 
 ## `namespace AsyncTask::Var`
 
@@ -79,10 +79,6 @@ main = (
 
 ## `namespace AsyncTask`
 
-### `_make_from_io : Std::IO a -> AsyncTask::Task a`
-
-Similar to `make`, but the task function takes an argument.
-
 ### `_run_task_function : Std::Boxed (() -> Std::Ptr) -> Std::Ptr`
 
 Evaluate the boxed lazy pointer.
@@ -120,7 +116,7 @@ main = (
     // Sum up the results of the two computations.
     let sum = sum_former.get + sum_latter;
     // Then the sum should be n * (n - 1) / 2.
-    eval assert_eq(|_|"", sum, n * (n - 1) / 2);
+    +assert_eq(|_|"", sum, n * (n - 1) / 2);
     println $
         "Sum of numbers from 0 to " + (n - 1).to_string +
         " is " + sum_former.get.to_string + " + " + sum_latter.to_string +
@@ -136,7 +132,7 @@ The runtime pools as many threads as this number to execute asynchronous tasks.
 
 ## `namespace AsyncTask::AsyncIOTask`
 
-### `get : AsyncTask::AsyncIOTask::IOTask a -> a`
+### `get : AsyncTask::AsyncIOTask::IOTask a -> Std::IO a`
 
 Get the result of an asynchronous I/O action.
 
@@ -170,19 +166,19 @@ main = (
 
 ## `namespace AsyncTask::AsyncIOTask::IOTask`
 
-### `@_task : AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::Task a`
+### `@_task : AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::Task (Std::IO::IOState, a)`
 
 Retrieves the field `_task` from a value of `IOTask`.
 
-### `act__task : [f : Std::Functor] (AsyncTask::Task a -> f (AsyncTask::Task a)) -> AsyncTask::AsyncIOTask::IOTask a -> f (AsyncTask::AsyncIOTask::IOTask a)`
+### `act__task : [f : Std::Functor] (AsyncTask::Task (Std::IO::IOState, a) -> f (AsyncTask::Task (Std::IO::IOState, a))) -> AsyncTask::AsyncIOTask::IOTask a -> f (AsyncTask::AsyncIOTask::IOTask a)`
 
 Updates a value of `IOTask` by applying a functorial action to field `_task`.
 
-### `mod__task : (AsyncTask::Task a -> AsyncTask::Task a) -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
+### `mod__task : (AsyncTask::Task (Std::IO::IOState, a) -> AsyncTask::Task (Std::IO::IOState, a)) -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
 
 Updates a value of `IOTask` by applying a function to field `_task`.
 
-### `set__task : AsyncTask::Task a -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
+### `set__task : AsyncTask::Task (Std::IO::IOState, a) -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
 
 Updates a value of `IOTask` by setting field `_task` to a specified one.
 
