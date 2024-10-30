@@ -43,8 +43,8 @@ main = (
 
     // Launch multiple threads, and log in which order each thread is executed.
     let num_threads = number_of_processors * 2;
-    +Iterator::range(0, num_threads).fold_m((), |_, i| (
-        +AsyncIOTask::make(
+    Iterator::range(0, num_threads).fold_m((), |_, i| (
+        AsyncIOTask::make(
             logger.lock(|logs| (
                 let count = logs.get_size;
                 let msg = "Thread " + i.to_string + " is running at " + count.to_string +
@@ -52,9 +52,8 @@ main = (
                 let msg = msg + if i == count { "." } else { "!" };
                 logger.set(logs.push_back(msg))
             ))
-        ).forget;
-        pure()
-    ));
+        )
+    ));;
 
     // Wait until all threads are finished.
     +logger.wait(|logs| logs.get_size == num_threads);
@@ -116,7 +115,7 @@ main = (
     // Sum up the results of the two computations.
     let sum = sum_former.get + sum_latter;
     // Then the sum should be n * (n - 1) / 2.
-    +assert_eq(|_|"", sum, n * (n - 1) / 2);
+    assert_eq(|_|"", sum, n * (n - 1) / 2);;
     println $
         "Sum of numbers from 0 to " + (n - 1).to_string +
         " is " + sum_former.get.to_string + " + " + sum_latter.to_string +
