@@ -10,6 +10,8 @@
 
 ## `namespace Test`
 
+### `example_io : Std::IO ()`
+
 ### `fib_async : Std::I64 -> Std::I64`
 
 ### `regression_issue_14 : Std::IO ()`

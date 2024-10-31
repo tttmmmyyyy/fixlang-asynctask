@@ -169,6 +169,24 @@ regression_issue_14 = (
     pure()
 );
 
+example_io : IO ();
+example_io = (
+    let print_ten : I64 -> IO () = |task_num| (
+        loop_m(0, |i| (
+            if i == 10 {
+                break_m $ ()
+            } else {
+                let msg = "task number: " + task_num.to_string + ", i: " + i.to_string;
+                msg.println;;
+                continue_m $ i + 1
+            }
+        ))
+    );
+    (*AsyncIOTask::make(print_ten(0))).get;;
+    (*AsyncIOTask::make(print_ten(1))).get;;
+    pure()
+);
+
 test : IO ();
 test = (
     test_async_fib;;
@@ -178,5 +196,6 @@ test = (
     test_mvar;;
     test_mvar_of_shared_object;;
     regression_issue_14;;
+    example_io;;
     pure()
 );

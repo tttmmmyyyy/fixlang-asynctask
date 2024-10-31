@@ -152,13 +152,13 @@ main = (
                 break_m $ ()
             } else {
                 let msg = "task number: " + task_num.to_string + ", i: " + i.to_string;
-                +msg.println;
+                msg.println;;
                 continue_m $ i + 1
             }
         ))
     );
-    eval (*AsyncIOTask::make(print_ten(0))).get;
-    eval (*AsyncIOTask::make(print_ten(1))).get;
+    (*AsyncIOTask::make(print_ten(0))).get;;
+    (*AsyncIOTask::make(print_ten(1))).get;;
     pure()
 );
 ```
