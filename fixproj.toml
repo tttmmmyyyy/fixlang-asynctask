@@ -1,6 +1,6 @@
 [general]
 name = "asynctask"
-version = "0.2.6"
+version = "0.2.7"
 
 [build]
 files = ["asynctask.fix"]
