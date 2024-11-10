@@ -7,3 +7,13 @@
    fun:_IO_file_xsputn@@GLIBC_2.2.5
    fun:fputs
 }
+# Suppress leak report for stack of detached thread.
+{
+   leak-stack-detached-thread
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:main
+}
