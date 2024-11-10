@@ -78,7 +78,7 @@ main = (
 
 ## `namespace AsyncTask`
 
-### `_run_task_function : Std::Boxed (() -> Std::Ptr) -> Std::Ptr`
+### `_run_task_function : Std::Box (() -> Std::Ptr) -> Std::Ptr`
 
 Evaluate the boxed lazy pointer.
 
