@@ -64,7 +64,7 @@ get = |task| (
 // ```
 make : (() -> a) -> Task a;
 make = |func| (
-    let lazy_boxed_a = |_| Box::make(func()); // : Lazy (Boxed a)
+    let lazy_box_a = |_| undefined("") : Box a;
     let func = mark_threaded(func);
 
     // Create task function to be run on a thread.
@@ -78,8 +78,8 @@ make = |func| (
     // Get the native handle of the task.
     let task_handle : TaskHandle = FFI_CALL[Ptr fixasynctask_thread_create_task(Ptr, Ptr, Ptr), 
         boxed_task_func.boxed_to_retained_ptr,
-        lazy_boxed_a.get_funptr_release,
-        lazy_boxed_a.get_funptr_retain
+        lazy_box_a.get_funptr_release,
+        lazy_box_a.get_funptr_retain
     ];
 
     // In the destructor, release the task handle.
