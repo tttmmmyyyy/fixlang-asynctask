@@ -162,9 +162,7 @@ regression_issue_14 = (
     let str = "abc";
     let buf = Array::fill(256, 0_U8);
     let res = str.borrow_c_str(|p_str|
-        buf.borrow_ptr(|p_ret|
-            0_I32
-        )
+        buf.borrow_boxed(|p_ret| 0_I32)
     );
     pure()
 );
