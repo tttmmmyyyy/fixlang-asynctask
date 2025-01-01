@@ -23,7 +23,7 @@ FFI_EXPORT[_run_task_function, fixasynctask_run_task_function];
 // This function blocks the current thread until the task is finished.
 get : Task a -> a;
 get = |task| (
-    let task_result_ptr = task.do_with_retained(|task| 
+    let task_result_ptr = task.with_retained(|task| 
         let task_handle = task.@dtor.@_value;
         FFI_CALL[Ptr fixasynctask_thread_get_task_result(Ptr), task_handle]
     );
