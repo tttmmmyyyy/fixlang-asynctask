@@ -1,6 +1,6 @@
 # `module AsyncTask`
 
-This module provides a way to run a task asynchronously.
+This module provides a way to run tasks asynchronously.
 
 Importing this module automatically enables `--threaded` flag of the compiler.
 Note that this causes some overhead even for a single-threaded program.

@@ -1,6 +1,7 @@
 [general]
 name = "asynctask"
 version = "1.0.1"
+description = "Provides a way to run tasks asynchronously."
 
 [build]
 files = ["asynctask.fix"]
