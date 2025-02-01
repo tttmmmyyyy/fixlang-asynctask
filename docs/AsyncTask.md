@@ -13,7 +13,7 @@ Note that this causes some overhead even for a single-threaded program.
 
 A type for a computation task that runs asynchronously.
 
-#### field `dtor : Std::FFI::Destructor Std::Ptr`
+#### field `dtor : Std::FFI::Destructor AsyncTask::TaskHandle`
 
 ### `type TaskHandle = Std::Ptr`
 
@@ -62,7 +62,7 @@ main = (
 );
 ```
 
-#### field `_dtor : Std::FFI::Destructor Std::Ptr`
+#### field `_dtor : Std::FFI::Destructor AsyncTask::Var::VarHandle`
 
 ### `type VarHandle = Std::Ptr`
 
@@ -163,42 +163,6 @@ main = (
 );
 ```
 
-## `namespace AsyncTask::AsyncIOTask::IOTask`
-
-### `@_task : AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::Task (Std::IO::IOState, a)`
-
-Retrieves the field `_task` from a value of `IOTask`.
-
-### `act__task : [f : Std::Functor] (AsyncTask::Task (Std::IO::IOState, a) -> f (AsyncTask::Task (Std::IO::IOState, a))) -> AsyncTask::AsyncIOTask::IOTask a -> f (AsyncTask::AsyncIOTask::IOTask a)`
-
-Updates a value of `IOTask` by applying a functorial action to field `_task`.
-
-### `mod__task : (AsyncTask::Task (Std::IO::IOState, a) -> AsyncTask::Task (Std::IO::IOState, a)) -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
-
-Updates a value of `IOTask` by applying a function to field `_task`.
-
-### `set__task : AsyncTask::Task (Std::IO::IOState, a) -> AsyncTask::AsyncIOTask::IOTask a -> AsyncTask::AsyncIOTask::IOTask a`
-
-Updates a value of `IOTask` by setting field `_task` to a specified one.
-
-## `namespace AsyncTask::Task`
-
-### `@dtor : AsyncTask::Task a -> Std::FFI::Destructor Std::Ptr`
-
-Retrieves the field `dtor` from a value of `Task`.
-
-### `act_dtor : [f : Std::Functor] (Std::FFI::Destructor Std::Ptr -> f (Std::FFI::Destructor Std::Ptr)) -> AsyncTask::Task a -> f (AsyncTask::Task a)`
-
-Updates a value of `Task` by applying a functorial action to field `dtor`.
-
-### `mod_dtor : (Std::FFI::Destructor Std::Ptr -> Std::FFI::Destructor Std::Ptr) -> AsyncTask::Task a -> AsyncTask::Task a`
-
-Updates a value of `Task` by applying a function to field `dtor`.
-
-### `set_dtor : Std::FFI::Destructor Std::Ptr -> AsyncTask::Task a -> AsyncTask::Task a`
-
-Updates a value of `Task` by setting field `dtor` to a specified one.
-
 ## `namespace AsyncTask::Var`
 
 ### `get : AsyncTask::Var::Var a -> Std::IO a`
@@ -232,39 +196,3 @@ the value in `var` may be changed after `cond` is evaluated.
 
 `var.wait_and_lock(cond, act)` waits until `cond` on the value of `var` is satisfied,
 then performs `act` on the value in `var` while locking `var` to prevent it from being changed by another thread.
-
-## `namespace AsyncTask::Var::Var`
-
-### `@_dtor : AsyncTask::Var::Var a -> Std::FFI::Destructor Std::Ptr`
-
-Retrieves the field `_dtor` from a value of `Var`.
-
-### `act__dtor : [f : Std::Functor] (Std::FFI::Destructor Std::Ptr -> f (Std::FFI::Destructor Std::Ptr)) -> AsyncTask::Var::Var a -> f (AsyncTask::Var::Var a)`
-
-Updates a value of `Var` by applying a functorial action to field `_dtor`.
-
-### `mod__dtor : (Std::FFI::Destructor Std::Ptr -> Std::FFI::Destructor Std::Ptr) -> AsyncTask::Var::Var a -> AsyncTask::Var::Var a`
-
-Updates a value of `Var` by applying a function to field `_dtor`.
-
-### `set__dtor : Std::FFI::Destructor Std::Ptr -> AsyncTask::Var::Var a -> AsyncTask::Var::Var a`
-
-Updates a value of `Var` by setting field `_dtor` to a specified one.
-
-## `namespace AsyncTask::Var::VarValue`
-
-### `@value : AsyncTask::Var::VarValue a -> a`
-
-Retrieves the field `value` from a value of `VarValue`.
-
-### `act_value : [f : Std::Functor] (a -> f a) -> AsyncTask::Var::VarValue a -> f (AsyncTask::Var::VarValue a)`
-
-Updates a value of `VarValue` by applying a functorial action to field `value`.
-
-### `mod_value : (a -> a) -> AsyncTask::Var::VarValue a -> AsyncTask::Var::VarValue a`
-
-Updates a value of `VarValue` by applying a function to field `value`.
-
-### `set_value : a -> AsyncTask::Var::VarValue a -> AsyncTask::Var::VarValue a`
-
-Updates a value of `VarValue` by setting field `value` to a specified one.
