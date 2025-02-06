@@ -43,7 +43,7 @@ main = (
 
     // Launch multiple threads, and log in which order each thread is executed.
     let num_threads = number_of_processors * 2;
-    Iterator::range(0, num_threads).fold_m((), |_, i| (
+    Iterator::range(0, num_threads).fold_m((), |i, _| (
         AsyncIOTask::make(
             logger.lock(|logs| (
                 let count = logs.get_size;
