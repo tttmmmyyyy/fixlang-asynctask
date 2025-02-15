@@ -5,31 +5,31 @@ This module provides a way to run tasks asynchronously.
 Importing this module automatically enables `--threaded` flag of the compiler.
 Note that this causes some overhead even for a single-threaded program.
 
-# Types and aliases
+## Types and aliases
 
-## `namespace AsyncTask`
+### `namespace AsyncTask`
 
-### `type Task a = unbox struct { ...fields... }`
+#### `type Task a = unbox struct { ...fields... }`
 
 A type for a computation task that runs asynchronously.
 
-#### field `dtor : Std::FFI::Destructor AsyncTask::TaskHandle`
+##### field `dtor : Std::FFI::Destructor AsyncTask::TaskHandle`
 
-### `type TaskHandle = Std::Ptr`
+#### `type TaskHandle = Std::Ptr`
 
 A native handle of a task. This type is used only for implementation.
 
-## `namespace AsyncTask::AsyncIOTask`
+### `namespace AsyncTask::AsyncIOTask`
 
-### `type IOTask a = unbox struct { ...fields... }`
+#### `type IOTask a = unbox struct { ...fields... }`
 
 A type for an I/O action that can be run asynchronously.
 
-#### field `_task : AsyncTask::Task (Std::IO::IOState, a)`
+##### field `_task : AsyncTask::Task (Std::IO::IOState, a)`
 
-## `namespace AsyncTask::Var`
+### `namespace AsyncTask::Var`
 
-### `type Var a = unbox struct { ...fields... }`
+#### `type Var a = unbox struct { ...fields... }`
 
 A type of variable which can be modified from multiple threads.
 
@@ -62,33 +62,33 @@ main = (
 );
 ```
 
-#### field `_dtor : Std::FFI::Destructor AsyncTask::Var::VarHandle`
+##### field `_dtor : Std::FFI::Destructor AsyncTask::Var::VarHandle`
 
-### `type VarHandle = Std::Ptr`
+#### `type VarHandle = Std::Ptr`
 
-### `type VarValue a = box struct { ...fields... }`
+#### `type VarValue a = box struct { ...fields... }`
 
-#### field `value : a`
+##### field `value : a`
 
-# Traits and aliases
+## Traits and aliases
 
-# Trait implementations
+## Trait implementations
 
-# Values
+## Values
 
-## `namespace AsyncTask`
+### `namespace AsyncTask`
 
-### `_run_task_function : Std::Box (() -> Std::Ptr) -> Std::Ptr`
+#### `_run_task_function : Std::Box (() -> Std::Ptr) -> Std::Ptr`
 
 Evaluate the boxed lazy pointer.
 
-### `get : AsyncTask::Task a -> a`
+#### `get : AsyncTask::Task a -> a`
 
 Gets the result of a task.
 
 This function blocks the current thread until the task is finished.
 
-### `make : (() -> a) -> AsyncTask::Task a`
+#### `make : (() -> a) -> AsyncTask::Task a`
 
 Makes a task which performs a computation asynchronously.
 
@@ -123,19 +123,19 @@ main = (
 );
 ```
 
-### `number_of_processors : Std::I64`
+#### `number_of_processors : Std::I64`
 
 Gets the number of processors (CPU cores) currently available.
 This is implemented by calling `sysconf(_SC_NPROCESSORS_ONLN)`.
 The runtime pools as many threads as this number to execute asynchronous tasks.
 
-## `namespace AsyncTask::AsyncIOTask`
+### `namespace AsyncTask::AsyncIOTask`
 
-### `get : AsyncTask::AsyncIOTask::IOTask a -> Std::IO a`
+#### `get : AsyncTask::AsyncIOTask::IOTask a -> Std::IO a`
 
 Get the result of an asynchronous I/O action.
 
-### `make : Std::IO a -> Std::IO (AsyncTask::AsyncIOTask::IOTask a)`
+#### `make : Std::IO a -> Std::IO (AsyncTask::AsyncIOTask::IOTask a)`
 
 An `IO` version of `AsyncTask::make`.
 
@@ -163,36 +163,36 @@ main = (
 );
 ```
 
-## `namespace AsyncTask::Var`
+### `namespace AsyncTask::Var`
 
-### `get : AsyncTask::Var::Var a -> Std::IO a`
+#### `get : AsyncTask::Var::Var a -> Std::IO a`
 
 Get a value stored in a `Var`.
 
-### `lock : (a -> Std::IO b) -> AsyncTask::Var::Var a -> Std::IO b`
+#### `lock : (a -> Std::IO b) -> AsyncTask::Var::Var a -> Std::IO b`
 
 `var.lock(act)` performs an action on the value in `var` while locking `var` to prevent it from being changed by another thread.
 
-### `make : a -> Std::IO (AsyncTask::Var::Var a)`
+#### `make : a -> Std::IO (AsyncTask::Var::Var a)`
 
 Create a new `Var` object.
 
-### `mod : (a -> a) -> AsyncTask::Var::Var a -> Std::IO ()`
+#### `mod : (a -> a) -> AsyncTask::Var::Var a -> Std::IO ()`
 
 Atomically modifies a value in a `Var`.
 
-### `set : a -> AsyncTask::Var::Var a -> Std::IO ()`
+#### `set : a -> AsyncTask::Var::Var a -> Std::IO ()`
 
 Set a value to a `Var`.
 
-### `wait : (a -> Std::Bool) -> AsyncTask::Var::Var a -> Std::IO ()`
+#### `wait : (a -> Std::Bool) -> AsyncTask::Var::Var a -> Std::IO ()`
 
 `var.wait(cond)` waits until `cond` on the value of `var` is satisfied.
 
 Note that it is not assured that `cond` is satisfied after `wait` returned;
 the value in `var` may be changed after `cond` is evaluated.
 
-### `wait_and_lock : (a -> Std::Bool) -> (a -> Std::IO b) -> AsyncTask::Var::Var a -> Std::IO b`
+#### `wait_and_lock : (a -> Std::Bool) -> (a -> Std::IO b) -> AsyncTask::Var::Var a -> Std::IO b`
 
 `var.wait_and_lock(cond, act)` waits until `cond` on the value of `var` is satisfied,
 then performs `act` on the value in `var` while locking `var` to prevent it from being changed by another thread.
