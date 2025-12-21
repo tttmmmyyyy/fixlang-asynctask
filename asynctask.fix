@@ -11,23 +11,25 @@ type Task a = unbox struct { dtor : Destructor TaskHandle };
 type TaskHandle = Ptr;
 
 // Evaluate the boxed lazy pointer.
-_run_task_function : Box (() -> Ptr) -> Ptr;
-_run_task_function = |boxed_func| (
-    let func = boxed_func.@value;
-    func()
-);
+_run_task_function : Box (IO Ptr) -> IO Ptr;
+_run_task_function = Box::@value;
+
 FFI_EXPORT[_run_task_function, fixasynctask_run_task_function];
 
 // Gets the result of a task.
 // 
 // This function blocks the current thread until the task is finished.
 get : Task a -> a;
-get = |task| (
-    let task_result_ptr = task.with_retained(|task| 
-        let task_handle = task.@dtor.@_value;
-        FFI_CALL[Ptr fixasynctask_thread_get_task_result(Ptr), task_handle]
-    );
-    boxed_from_retained_ptr(task_result_ptr).Box::@value
+get = |task| task._get_io.unsafe_perform;
+
+// Internal implementation of `Task::get` and `AsyncIOTask::get`.
+_get_io : Task a -> IO a;
+_get_io = |task| (
+    task.@dtor.borrow_io(|task_handle|
+        let task_result_ptr = *FFI_CALL_IO[Ptr fixasynctask_thread_get_task_result(Ptr), task_handle];
+        let boxed = *task_result_ptr.boxed_from_retained_ptr;
+        pure $ boxed.Box::@value
+    )
 );
 
 // Makes a task which performs a computation asynchronously.
@@ -63,21 +65,29 @@ get = |task| (
 // );
 // ```
 make : (() -> a) -> Task a;
-make = |func| (
-    let lazy_box_a = |_| undefined("") : Box a;
-    let func = mark_threaded(func);
+make = |task| (
+    let task = IO::from_runner $ |ios| (ios, task());
+    _make_io(task).unsafe_perform
+);
+
+// Internal implementation of `Task::make` and `AsyncIOTask::make`.
+_make_io : IO a -> IO (Task a);
+_make_io = |task| (
+    let lazy_box_a : Lazy (Box a) = |_| undefined("");
 
     // Create task function to be run on a thread.
-    let task_func : () -> Ptr = |_| (
+    let task : IO Ptr = (
         // Run the task function.
-        let result = func();
+        let result = *task;
         // Return the boxed and threaded value.
-        mark_threaded(Box::make(result)).boxed_to_retained_ptr
+        let boxed = mark_threaded(Box::make(result));
+        boxed.boxed_to_retained_ptr
     );
-    let boxed_task_func = Box::make(task_func);
+    let task : Box (IO Ptr) = Box::make(task).mark_threaded;
+
     // Get the native handle of the task.
-    let task_handle : TaskHandle = FFI_CALL[Ptr fixasynctask_thread_create_task(Ptr, Ptr, Ptr), 
-        boxed_task_func.boxed_to_retained_ptr,
+    let task_handle : TaskHandle = *FFI_CALL_IO[Ptr fixasynctask_thread_create_task(Ptr, Ptr, Ptr), 
+        *task.boxed_to_retained_ptr,
         lazy_box_a.get_funptr_release,
         lazy_box_a.get_funptr_retain
     ];
@@ -87,7 +97,7 @@ make = |func| (
         let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_release_task(Ptr), task_handle, ios];
         (ios, nullptr)
     ));
-    Task { dtor : dtor }
+    Task { dtor : dtor }.pure
 );
 
 // Gets the number of processors (CPU cores) currently available.
@@ -99,14 +109,11 @@ number_of_processors = FFI_CALL[I64 fixasynctask_get_number_of_processors()];
 namespace AsyncIOTask {
 
     // A type for an I/O action that can be run asynchronously.
-    type IOTask a = unbox struct { _task : Task (IOState, a) };
+    type IOTask a = unbox struct { _task : Task a };
 
     // Get the result of an asynchronous I/O action.
     get : IOTask a -> IO a;
-    get = |IOTask { _task : task }| IO::from_runner $ |ios| (
-        let task = eval ios; task;
-        task.get
-    );
+    get = |task| task.@_task._get_io;
 
     // An `IO` version of `AsyncTask::make`.
     // 
@@ -134,12 +141,7 @@ namespace AsyncIOTask {
     // );
     // ```
     make : IO a -> IO (IOTask a);
-    make = |io| (
-        // NOTE: we must not create Task in this function; we should create it in the IO action.
-        // Otherwise, user can run IO action in a pure function.
-        // So we cannot implement this function as `pure $ IOTask { ... }`.
-        IO::from_runner $ |ios| (ios, IOTask { _task : make(|_| (io.@runner)(ios)) })
-    );
+    make = |task| task._make_io.map(|task| IOTask { _task : task });
 }
 
 namespace Var {
@@ -181,45 +183,44 @@ namespace Var {
 
     // Get a value stored in a `Var`.
     get : Var a -> IO a;
-    get = |Var { _dtor : dtor }| IO { runner : |ios| (
-        let (ios, ptr) = dtor.borrow(|handle|
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-            let (ios, ptr) = FFI_CALL_IOS[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-            (ios, ptr)
-        );
-        (ios, ptr.boxed_from_retained_ptr.VarValue::@value)
-    ) };
+    get = |Var { _dtor : dtor }| (
+        dtor.borrow_io(|handle| 
+            FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle];;
+            let ptr = *FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle];
+            FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle];;
+            let boxed = *ptr.boxed_from_retained_ptr;
+            pure $ boxed.VarValue::@value
+        )
+    );
 
     // `var.lock(act)` performs an action on the value in `var` while locking `var` to prevent it from being changed by another thread.
     lock : (a -> IO b) -> Var a -> IO b;
-    lock = |act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
-        let (ios, res) = dtor.borrow(|handle|
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-            let (ios, ptr) = FFI_CALL_IOS[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-            let (ios, res) = (act(ptr.boxed_from_retained_ptr.VarValue::@value).@runner)(ios);
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-            (ios, res)
-        );
-        (ios, res)
+    lock = |act, Var { _dtor : dtor }| (
+        dtor.borrow_io(|handle|
+            FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle];;
+            let ptr = *FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle];
+            let boxed = *ptr.boxed_from_retained_ptr;
+            let res = *act(boxed.VarValue::@value);
+            FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle];;
+            pure $ res
+        )
     );
 
     // Create a new `Var` object.
     make : a -> IO (Var a);
-    make = |value| IO::from_runner $ |ios| (
+    make = |value| (
         let value = mark_threaded(VarValue { value : value });
         let lazy_value = |_| value;
-        let (ios, handle) = FFI_CALL_IOS[Ptr fixasynctask_thread_var_create(Ptr, Ptr, Ptr), 
-            value.boxed_to_retained_ptr,
+        let handle = *FFI_CALL_IO[Ptr fixasynctask_thread_var_create(Ptr, Ptr, Ptr), 
+            *value.boxed_to_retained_ptr,
             lazy_value.get_funptr_release,
-            lazy_value.get_funptr_retain,
-            ios
+            lazy_value.get_funptr_retain
         ];
         let dtor = Destructor::make(handle, |handle| IO::from_runner $ |ios| (
             let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_destroy(Ptr), handle, ios];
             (ios, nullptr)
         ));
-        (ios, Var { _dtor : dtor })
+        Var { _dtor : dtor }.pure
     );
 
     // Atomically modifies a value in a `Var`.
@@ -228,17 +229,15 @@ namespace Var {
 
     // Set a value to a `Var`.
     set : a -> Var a -> IO ();
-    set = |value, Var { _dtor : dtor }| IO::from_runner $ |ios| (
+    set = |value, Var { _dtor : dtor }| (
         let value = mark_threaded(VarValue { value : value });
-        let ptr = value.boxed_to_retained_ptr;
-        let ios = dtor.borrow(|handle|
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr, ios];
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_signalall(Ptr), handle, ios];
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-            ios
-        );
-        (ios, ())
+        let ptr = *value.boxed_to_retained_ptr;
+        dtor.borrow_io(|handle|
+            FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle];;
+            FFI_CALL_IO[() fixasynctask_thread_var_set(Ptr, Ptr), handle, ptr];;
+            FFI_CALL_IO[() fixasynctask_thread_var_signalall(Ptr), handle];;
+            FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle]
+        )
     );
 
     // `var.wait(cond)` waits until `cond` on the value of `var` is satisfied.
@@ -251,22 +250,23 @@ namespace Var {
     // `var.wait_and_lock(cond, act)` waits until `cond` on the value of `var` is satisfied, 
     // then performs `act` on the value in `var` while locking `var` to prevent it from being changed by another thread.
     wait_and_lock : (a -> Bool) -> (a -> IO b) -> Var a -> IO b;
-    wait_and_lock = |cond, act, Var { _dtor : dtor }| IO::from_runner $ |ios| (
-        dtor.borrow(|handle|
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_lock(Ptr), handle, ios];
-            let (ios, ok_val) = loop((ios, ()), |(ios, _)| (
-                let (ios, ptr) = FFI_CALL_IOS[Ptr fixasynctask_thread_var_get(Ptr), handle, ios];
-                let val = ptr.boxed_from_retained_ptr.VarValue::@value;
+    wait_and_lock = |cond, act, Var { _dtor : dtor }| (
+        dtor.borrow_io(|handle|
+            FFI_CALL_IO[() fixasynctask_thread_var_lock(Ptr), handle];;
+            let ok_val = *loop_m((), |_| (
+                let ptr = *FFI_CALL_IO[Ptr fixasynctask_thread_var_get(Ptr), handle];
+                let boxed = *ptr.boxed_from_retained_ptr;
+                let val = boxed.VarValue::@value;
                 if cond(val) {
-                    break $ (ios, val)
+                    break_m $ val
                 } else {
-                    let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_wait(Ptr), handle, ios];
-                    continue $ (ios, ())
+                    FFI_CALL_IO[() fixasynctask_thread_var_wait(Ptr), handle];;
+                    continue_m $ ()
                 }
             ));
-            let (ios, res) = (act(ok_val).@runner)(ios);
-            let (ios, _) = FFI_CALL_IOS[() fixasynctask_thread_var_unlock(Ptr), handle, ios];
-            (ios, res)
+            let res = *act(ok_val);
+            FFI_CALL_IO[() fixasynctask_thread_var_unlock(Ptr), handle];;
+            pure $ res
         )
     );
 }
