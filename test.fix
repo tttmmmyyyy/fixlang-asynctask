@@ -114,12 +114,20 @@ test_mvar = (
     let logger = *Var::make([]);
 
     // Launch multiple threads, and log in which order each thread is executed.
-    let num_threads = number_of_processors * 2;
+    // 
+    // Check that the threads are executed asynchronously: 
+    // Make threads that sleep for shorter time for later created threads,
+    // so that the threads finish in the reverse order of their creation.
+    // If the threads are not running asynchronously, they will finish in the same order as their creation.
+    let num_threads = min(10, number_of_processors);
     Iterator::range(0, num_threads).fold_m((), |i, _| (
         AsyncIOTask::make(
-            logger.lock(|logs| (
-                logger.set(logs.push_back(i))
-            ))
+            do {
+                FFI_CALL_IO[CInt sleep(CUnsignedInt), (num_threads - i).to_CUnsignedInt];;
+                logger.lock(|logs| (
+                    logger.set(logs.push_back(i))
+                ))
+            }
         ).forget
     ));;
 
@@ -127,8 +135,7 @@ test_mvar = (
     logger.wait(|logs| logs.get_size == num_threads);;
 
     let logs = *logger.get;
-    let logs = logs.sort_by(|(a, b)| a < b);
-    assert_eq(|_|"test_mvar failed!", logs, Iterator::range(0, num_threads).to_array);;
+    assert_eq(|_|"test_mvar failed!", logs, Iterator::range_step(num_threads - 1, -1, -1).to_array);;
     pure()
 );
 

@@ -76,13 +76,13 @@ _make_io = |task| (
     let lazy_box_a : Lazy (Box a) = |_| undefined("");
 
     // Create task function to be run on a thread.
-    let task : IO Ptr = (
+    let task : IO Ptr = do {
         // Run the task function.
         let result = *task;
         // Return the boxed and threaded value.
         let boxed = mark_threaded(Box::make(result));
         boxed.boxed_to_retained_ptr
-    );
+    };
     let task : Box (IO Ptr) = Box::make(task).mark_threaded;
 
     // Get the native handle of the task.
