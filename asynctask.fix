@@ -4,6 +4,15 @@
 // Note that this causes some overhead even for a single-threaded program.
 module AsyncTask;
 
+import Std::{
+    loop_m, mark_threaded, undefined, Bool, Box, I64, IO, Lazy, Ptr, Box::{make, @value}, 
+    FFI::{
+        boxed_from_retained_ptr, boxed_to_retained_ptr, get_funptr_release, get_funptr_retain, Destructor, 
+        Destructor::{borrow_io, make}
+    }, 
+    Functor::map, IO::{from_runner, unsafe_perform}, LoopState::{break_m, continue_m}, Monad::pure
+};
+
 // A type for a computation task that runs asynchronously.
 type Task a = unbox struct { dtor : Destructor TaskHandle };
 
