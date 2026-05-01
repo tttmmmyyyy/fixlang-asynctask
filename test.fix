@@ -6,11 +6,11 @@ import AsyncTask::{
 };
 import Std::{
     loop, loop_m, I64, IO, Add::add, 
-    Array::{append, fill, get_size, is_empty, push_back, sort_by, to_iter, @}, Debug::assert_eq, 
-    FFI::borrow_boxed, Functor::forget, I64::to_CUnsignedInt, IO::{eprintln, println}, 
+    Array::{append, fill, is_empty, push_back, sort_by, to_iter, @, @size}, Debug::assert_eq, 
+    FFI::borrow_boxed, Functor::forget, IO::{eprintln, println}, 
     Iterator::{fold, fold_m, range, range_step, reverse, to_array}, 
     LoopState::{break, break_m, continue, continue_m}, Monad::pure, String::borrow_c_str, 
-    ToString::to_string
+    ToCUnsignedInt::c_unsigned_int, ToString::to_string
 };
 
 fib_async : I64 -> I64;
@@ -42,7 +42,7 @@ test_async_shared_array = (
     let sum_task_1 = AsyncTask::make(|_| arr.to_iter.reverse.fold(0, Add::add));
     let sum_task_2 = AsyncTask::make(|_| (
         loop((0, 0), |(i, sum)| 
-            if i == arr.get_size { 
+            if i == arr.@size {
                 break $ sum
             } else {
                 continue $ (i + 1, sum + arr.@(i))
@@ -50,7 +50,7 @@ test_async_shared_array = (
         )
     ));
     let sum_task_3 = AsyncTask::make(|_| (
-        let half = arr.get_size / 2;
+        let half = arr.@size / 2;
         let sum = loop((0, 0), |(i, sum)| 
             if i == half { 
                 break $ sum
@@ -66,8 +66,8 @@ test_async_shared_array = (
                 continue $ (arr, i + 1)
             }
         ));
-        loop((half, sum), |(i, sum)| 
-            if i == arr.get_size { 
+        loop((half, sum), |(i, sum)|
+            if i == arr.@size {
                 break $ sum
             } else {
                 continue $ (i + 1, sum + arr.@(i))
@@ -75,7 +75,7 @@ test_async_shared_array = (
         )
     ));
     let sum_task_4 = loop((0, 0), |(i, sum)| (
-        if i == arr.get_size { break $ sum };
+        if i == arr.@size { break $ sum };
         continue $ (i + 1, sum + arr.@(i))
     ));
     let ans = n * (n - 1) / 2;
@@ -135,7 +135,7 @@ test_mvar = (
     ));;
 
     // Wait until all threads are finished.
-    logger.wait(|logs| logs.get_size == num_threads);;
+    logger.wait(|logs| logs.@size == num_threads);;
 
     let logs = *logger.get;
     let logs = logs.sort_by(|(a, b)| a < b);
@@ -157,7 +157,7 @@ test_async = (
     Iterator::range(0, num_threads).fold_m((), |i, _| (
         AsyncIOTask::make(
             do {
-                FFI_CALL_IO[CInt sleep(CUnsignedInt), (num_threads - i).to_CUnsignedInt];;
+                FFI_CALL_IO[CInt sleep(CUnsignedInt), (num_threads - i).c_unsigned_int];;
                 logger.lock(|logs| (
                     logger.set(logs.push_back(i))
                 ))
@@ -166,7 +166,7 @@ test_async = (
     ));;
 
     // Wait until all threads are finished.
-    logger.wait(|logs| logs.get_size == num_threads);;
+    logger.wait(|logs| logs.@size == num_threads);;
 
     let logs = *logger.get;
     assert_eq(|_|"test_async failed!", logs, Iterator::range_step(num_threads - 1, -1, -1).to_array);;
