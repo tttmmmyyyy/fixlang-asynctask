@@ -7,7 +7,7 @@ import AsyncTask::{
 import Std::{
     loop, loop_m, I64, IO, Add::add, 
     Array::{append, fill, is_empty, push_back, sort_by, to_iter, @, @size}, Debug::assert_eq, 
-    FFI::borrow_boxed, Functor::forget, IO::{eprintln, println}, 
+    Array::borrow_elements, Functor::forget, IO::{eprintln, println}, 
     Iterator::{fold, fold_m, range, range_step, reverse, to_array}, 
     LoopState::{break, break_m, continue, continue_m}, Monad::pure, String::borrow_c_str, 
     ToCUnsignedInt::c_unsigned_int, ToString::to_string
@@ -203,7 +203,7 @@ regression_issue_14 = (
     let str = "abc";
     let buf = Array::fill(256, 0_U8);
     let res = str.borrow_c_str(|p_str|
-        buf.borrow_boxed(|p_ret| 0_I32)
+        buf.borrow_elements(|p_ret| 0_I32)
     );
     pure()
 );
