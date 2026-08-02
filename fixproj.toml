@@ -1,16 +1,16 @@
 [general]
 name = "asynctask"
-version = "2.0.0"
+version = "3.0.0"
 fix_version = "1.5.0"
 description = "Provides a way to run tasks asynchronously."
 
 [build]
 files = ["asynctask.fix"]
 objects = ["lib.o"]
-threaded = true
 dynamic_links = ["pthread"]
 preliminary_commands = [["make", "lib.o"]]
 
 [build.test]
 files = ["test.fix"]
+threaded = true
 memcheck = true

@@ -1,7 +1,8 @@
 // This module provides a way to run tasks asynchronously.
 // 
-// Importing this module automatically enables `--threaded` flag of the compiler. 
-// Note that this causes some overhead even for a single-threaded program.
+// Build a program that uses this module with multi-threading enabled, by `threaded = true` in its
+// project file or by the `--threaded` compiler option. Note that this causes some overhead even for
+// a single-threaded program.
 module AsyncTask;
 
 import Std::{
