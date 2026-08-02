@@ -1,11 +1,12 @@
 # AsyncTask
 
-Defined in asynctask@1.1.3
+Defined in asynctask@2.0.1
 
 This module provides a way to run tasks asynchronously.
 
-Importing this module automatically enables `--threaded` flag of the compiler.
-Note that this causes some overhead even for a single-threaded program.
+Build a program that uses this module with multi-threading enabled, by `threaded = true` in its
+project file or by the `--threaded` compiler option. Note that this causes some overhead even for
+a single-threaded program.
 
 ## Values
 
@@ -178,10 +179,6 @@ Defined as: `type IOTask a = unbox struct { ...fields... }`
 
 A type for an I/O action that can be run asynchronously.
 
-##### field `_task`
-
-Type: `AsyncTask::Task a`
-
 ### namespace AsyncTask::Var
 
 #### Var
@@ -218,10 +215,6 @@ main = (
     println $ (*logger.get).to_iter.join("\n")
 );
 ```
-
-##### field `_dtor`
-
-Type: `Std::FFI::Destructor AsyncTask::Var::VarHandle`
 
 #### VarHandle
 
