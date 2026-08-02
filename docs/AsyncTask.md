@@ -1,6 +1,6 @@
 # AsyncTask
 
-Defined in asynctask@3.0.0
+Defined in asynctask@2.0.1
 
 This module provides a way to run tasks asynchronously.
 
