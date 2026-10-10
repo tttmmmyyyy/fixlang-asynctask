@@ -46,7 +46,7 @@ _get_io = |task| (
 // 
 // # Examples
 // ```fix
-// let sum_range = |from, to| Iterator::range(from, to).sum;
+// let sum_range = |from, to| range(from, to).sum;
 // let n = 1000000;
 // // This task computes the sum of the former half on another thread.
 // let sum_former = AsyncTask::make(|_| sum_range(0, n / 2));
@@ -128,7 +128,7 @@ namespace Var {
     // let counter = *Var::make(0);
     // let num_tasks = 10;
     // // Each task increments the counter atomically.
-    // Iterator::range(0, num_tasks).fold_m((), |_, _| (
+    // range(0, num_tasks).fold_m((), |_, _| (
     //     AsyncIOTask::make(counter.mod(|n| n + 1)).forget
     // ));;
     // // Wait until all tasks have incremented the counter.
