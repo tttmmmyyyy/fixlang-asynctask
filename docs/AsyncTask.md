@@ -26,35 +26,17 @@ Type: `(() -> a) -> AsyncTask::Task a`
 
 Makes a task which performs a computation asynchronously.
 
-Example:
-```
-module Main;
-import AsyncTask;
+##### Examples
 
-main : IO ();
-main = (
-    let sum_range = |from, to| (
-        loop((0, from), |(sum, i)| (
-            if i == to { break $ sum };
-            continue $ (sum + i, i + 1)
-        ))
-    );
-    let n = 1000000000;
-    // Compute the sum of numbers from 0 to n/2 - 1.
-    // This task will be executed asynchronously (if you are using multi-core CPU).
-    let sum_former = AsyncTask::make(|_| sum_range(0, n/2));
-    // Compute the sum of numbers from n/2 to n.
-    // We perfom this in the current thread while waiting for the result of the former task.
-    let sum_latter = sum_range(n/2, n);
-    // Sum up the results of the two computations.
-    let sum = sum_former.get + sum_latter;
-    // Then the sum should be n * (n - 1) / 2.
-    assert_eq(|_|"", sum, n * (n - 1) / 2);;
-    println $
-        "Sum of numbers from 0 to " + (n - 1).to_string +
-        " is " + sum_former.get.to_string + " + " + sum_latter.to_string +
-        " = " + sum.to_string + "."
-);
+```fix
+let sum_range = |from, to| range(from, to).sum;
+let n = 1000000;
+// This task computes the sum of the former half on another thread.
+let sum_former = AsyncTask::make(|_| sum_range(0, n / 2));
+// The current thread computes the sum of the latter half meanwhile.
+let sum_latter = sum_range(n / 2, n);
+// `get` waits for the task to finish.
+assert_eq(|_|"", sum_former.get + sum_latter, n * (n - 1) / 2)
 ```
 
 #### number_of_processors
@@ -79,28 +61,14 @@ Type: `Std::IO a -> Std::IO (AsyncTask::AsyncIOTask::IOTask a)`
 
 An `IO` version of `AsyncTask::make`.
 
-Example:
-```
-module Main;
-import AsyncTask;
+##### Examples
 
-main : IO ();
-main = (
-    let print_ten : I64 -> IO () = |task_num| (
-        loop_m(0, |i| (
-            if i == 10 {
-                break_m $ ()
-            } else {
-                let msg = "task number: " + task_num.to_string + ", i: " + i.to_string;
-                msg.println;;
-                continue_m $ i + 1
-            }
-        ))
-    );
-    (*AsyncIOTask::make(print_ten(0))).get;;
-    (*AsyncIOTask::make(print_ten(1))).get;;
-    pure()
-);
+```fix
+let var = *Var::make(0);
+let task = *AsyncIOTask::make(var.Var::set(42);; pure $ "done");
+// `get` waits for the action to finish, and returns its result.
+assert_eq(|_|"", *task.get, "done");;
+assert_eq(|_|"", *var.get, 42)
 ```
 
 ### namespace AsyncTask::Var
@@ -187,33 +155,18 @@ Defined as: `type Var a = unbox struct { ...fields... }`
 
 A type of variable which can be modified from multiple threads.
 
-```
-module Main;
-import AsyncTask;
+##### Examples
 
-main : IO ();
-main = (
-    let logger = *Var::make([]); // A mutable array of strings.
-
-    // Launch multiple threads, and log in which order each thread is executed.
-    let num_threads = number_of_processors * 2;
-    Iterator::range(0, num_threads).fold_m((), |i, _| (
-        AsyncIOTask::make(
-            logger.lock(|logs| (
-                let count = logs.get_size;
-                let msg = "Thread " + i.to_string + " is running at " + count.to_string +
-                    if count % 10 == 1 { "st" } else if count % 10 == 2 { "nd" } else if count % 10 == 3 { "rd" } else { "th" };
-                let msg = msg + if i == count { "." } else { "!" };
-                logger.set(logs.push_back(msg))
-            ))
-        )
-    ));;
-
-    // Wait until all threads are finished.
-    +logger.wait(|logs| logs.get_size == num_threads);
-
-    println $ (*logger.get).to_iter.join("\n")
-);
+```fix
+let counter = *Var::make(0);
+let num_tasks = 10;
+// Each task increments the counter atomically.
+range(0, num_tasks).fold_m((), |_, _| (
+    AsyncIOTask::make(counter.mod(|n| n + 1)).forget
+));;
+// Wait until all tasks have incremented the counter.
+counter.wait(|n| n == num_tasks);;
+assert_eq(|_|"", *counter.get, num_tasks)
 ```
 
 #### VarHandle
